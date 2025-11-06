@@ -27,10 +27,17 @@ interface Produto {
 
 export default function ModalProduto() {
   const router = useRouter(); 
-  const { id } = useLocalSearchParams(); 
   
-  const idNumerico = id ? Number(id) : null;
+  // --- AQUI ESTÁ A CORREÇÃO ---
+  const params = useLocalSearchParams();
+  // 1. Pegamos o 'id' dos parâmetros
+  const idParam = params.id; 
+  // 2. Checamos se é um array. Se for, pegamos o primeiro item.
+  const idString = Array.isArray(idParam) ? idParam[0] : idParam;
+  // 3. Agora sim, convertemos para número.
+  const idNumerico = idString ? Number(idString) : null;
   const isEditMode = !!idNumerico;
+  // --- FIM DA CORREÇÃO ---
   
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -38,16 +45,25 @@ export default function ModalProduto() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
 
+  // --- Funções de Alerta Universais (para Web e Celular) ---
+  const showAppAlert = (title: string, message: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(message);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   // --- Efeito para buscar dados (se for edição) ---
   useEffect(() => {
     if (isEditMode) {
-      // Modo Edição: buscar dados do produto do storage
       setIsFetchingData(true);
       const loadProduto = async () => {
         try {
           const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
           const produtos: Produto[] = jsonValue != null ? JSON.parse(jsonValue) : [];
           
+          // A lógica de busca continua a mesma
           const produtoParaEditar = produtos.find(p => p.id === idNumerico);
           
           if (produtoParaEditar) {
@@ -55,56 +71,38 @@ export default function ModalProduto() {
             setDescricao(produtoParaEditar.descricao);
             setPreco(produtoParaEditar.preco.toString());
           } else {
-            if (Platform.OS === 'web') {
-              window.alert('Erro! Produto não encontrado.');
-            } else {
-              Alert.alert('Erro', 'Produto não encontrado.');
-            }
+            showAppAlert('Erro', 'Produto não encontrado.');
             router.back();
           }
         } catch (e) {
-          if (Platform.OS === 'web') {
-            window.alert('Erro! Não foi possível carregar os dados do produto.');
-          } else {
-            Alert.alert('Erro', 'Não foi possível carregar os dados do produto.');
-          }
+          showAppAlert('Erro', 'Não foi possível carregar os dados do produto.');
         } finally {
           setIsFetchingData(false);
         }
       };
       loadProduto();
     } else {
-      // Modo Criação
       setIsFetchingData(false);
     }
-  }, [idNumerico, isEditMode, router]);
+  }, [idNumerico, isEditMode, router]); // O 'idNumerico' agora é seguro
 
 
   // --- FUNÇÃO DE SALVAR (Create ou Update) ---
   const handleSalvar = async () => {
     // Validação
     if (!nome || !preco) {
-      if (Platform.OS === 'web') {
-        window.alert('Erro! Nome e Preço são obrigatórios.');
-      } else {
-        Alert.alert('Erro', 'Nome e Preço são obrigatórios.');
-      }
+      showAppAlert('Erro', 'Nome e Preço são obrigatórios.');
       return;
     }
     const precoNumerico = parseFloat(preco);
     if (isNaN(precoNumerico)) {
-      if (Platform.OS === 'web') {
-        window.alert('Erro! O preço deve ser um número válido.');
-      } else {
-        Alert.alert('Erro', 'O preço deve ser um número válido.');
-      }
+      showAppAlert('Erro', 'O preço deve ser um número válido.');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // Ler a lista atual
       const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
       const produtosAtuais: Produto[] = jsonValue != null ? JSON.parse(jsonValue) : [];
       
@@ -112,7 +110,7 @@ export default function ModalProduto() {
         // --- LÓGICA DE UPDATE ---
         const novosProdutos = produtosAtuais.map(p => 
           p.id === idNumerico 
-          ? { ...p, nome, descricao, preco: precoNumerico } // Atualiza o produto
+          ? { ...p, nome, descricao, preco: precoNumerico }
           : p
         );
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(novosProdutos));
@@ -120,28 +118,22 @@ export default function ModalProduto() {
       } else {
         // --- LÓGICA DE CREATE ---
         const novoProduto: Produto = {
-          id: new Date().getTime(), // Gera um ID único baseado no tempo
+          id: new Date().getTime(),
           nome: nome,
           descricao: descricao,
           preco: precoNumerico,
         };
-        
-        const novosProdutos = [...produtosAtuais, novoProduto]; // Adiciona o novo
+        const novosProdutos = [...produtosAtuais, novoProduto];
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(novosProdutos));
       }
       
-      // Sucesso! Voltar para a tela de lista
       if (router.canGoBack()) {
         router.back();
       }
 
     } catch (e) {
       console.error(e);
-      if (Platform.OS === 'web') {
-        window.alert('Erro! Não foi possível salvar o produto.');
-      } else {
-        Alert.alert('Erro', 'Não foi possível salvar o produto.');
-      }
+      showAppAlert('Erro', 'Não foi possível salvar o produto.');
     } finally {
       setIsLoading(false);
     }
@@ -167,7 +159,7 @@ export default function ModalProduto() {
       <TextInput
         style={styles.input}
         placeholder="Ex: Pizza Calabresa"
-        placeholderTextColor="#999999" // <<< --- CORRIGIDO AQUI
+        placeholderTextColor="#999999" // Cor do placeholder
         value={nome}
         onChangeText={setNome}
       />
@@ -176,7 +168,7 @@ export default function ModalProduto() {
       <TextInput
         style={styles.input}
         placeholder="Ex: Molho, queijo e calabresa"
-        placeholderTextColor="#999999" // <<< --- CORRIGIDO AQUI
+        placeholderTextColor="#999999"
         value={descricao}
         onChangeText={setDescricao}
       />
@@ -185,7 +177,7 @@ export default function ModalProduto() {
       <TextInput
         style={styles.input}
         placeholder="Ex: 48.50"
-        placeholderTextColor="#999999" // <<< --- CORRIGIDO AQUI
+        placeholderTextColor="#999999"
         value={preco}
         onChangeText={setPreco}
         keyboardType="numeric"
@@ -195,13 +187,13 @@ export default function ModalProduto() {
         title={isLoading ? "Salvando..." : (isEditMode ? "Atualizar Produto" : "Salvar Produto")} 
         onPress={handleSalvar}
         disabled={isLoading}
-        color={COR_PRINCIPAL} // Cor vermelha que definimos
+        color={COR_PRINCIPAL} // Cor vermelha
       />
     </View>
   );
 }
 
-// --- ESTILOS (EXATAMENTE OS MESMOS) ---
+// --- ESTILOS (Com as correções de placeholder) ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -225,7 +217,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     paddingHorizontal: 10,
     marginBottom: 20,
-    fontSize: 16, // Adicionei um fontSize para ficar mais legível
-    color: '#333', // Cor do texto digitado
+    fontSize: 16,
+    color: '#333', 
   },
 });
