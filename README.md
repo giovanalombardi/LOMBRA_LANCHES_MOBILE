@@ -8,6 +8,9 @@ O sistema permite o gerenciamento completo dos produtos (CRUD: Criar, Ler, Atual
 
 ## 🌐 Acesso Web (Vercel)
 
+O frontend do projeto está hospedado na Vercel.
+*Observação: Para que os produtos carreguem, o servidor Backend (no meu computador) e o túnel Ngrok precisam estar ativos.*
+
 🔗 **Link do App:** **https://lombra-lanches-mobile.vercel.app/**
 
 ---
