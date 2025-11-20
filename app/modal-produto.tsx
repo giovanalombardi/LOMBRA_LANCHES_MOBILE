@@ -10,34 +10,24 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Chave do nosso banco de dados local
-const STORAGE_KEY = '@LombaLanches:produtos';
+// --- CONFIGURAÇÃO DA API ---
+// O IP que pegamos no seu ipconfig
+const BASE_URL = 'https://patrica-uninoculated-janis.ngrok-free.dev'; 
+const RESTAURANTE_ID = 1;
 
 // Cor principal (Vermelho iFood)
 const COR_PRINCIPAL = '#EA1D2C';
 
-interface Produto {
-  id: number;
-  nome: string;
-  descricao: string;
-  preco: number;
-}
-
 export default function ModalProduto() {
   const router = useRouter(); 
-  
-  // --- AQUI ESTÁ A CORREÇÃO ---
   const params = useLocalSearchParams();
-  // 1. Pegamos o 'id' dos parâmetros
+  
+  // Lógica para pegar o ID corretamente
   const idParam = params.id; 
-  // 2. Checamos se é um array. Se for, pegamos o primeiro item.
   const idString = Array.isArray(idParam) ? idParam[0] : idParam;
-  // 3. Agora sim, convertemos para número.
   const idNumerico = idString ? Number(idString) : null;
   const isEditMode = !!idNumerico;
-  // --- FIM DA CORREÇÃO ---
   
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -45,7 +35,7 @@ export default function ModalProduto() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
 
-  // --- Funções de Alerta Universais (para Web e Celular) ---
+  // Helper para alertas
   const showAppAlert = (title: string, message: string) => {
     if (Platform.OS === 'web') {
       window.alert(message);
@@ -54,40 +44,41 @@ export default function ModalProduto() {
     }
   };
 
-  // --- Efeito para buscar dados (se for edição) ---
+  // --- 1. BUSCAR DADOS DO SERVIDOR (SE FOR EDIÇÃO) ---
   useEffect(() => {
     if (isEditMode) {
       setIsFetchingData(true);
-      const loadProduto = async () => {
-        try {
-          const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
-          const produtos: Produto[] = jsonValue != null ? JSON.parse(jsonValue) : [];
-          
-          // A lógica de busca continua a mesma
-          const produtoParaEditar = produtos.find(p => p.id === idNumerico);
+      // Busca todos os produtos do restaurante e filtra o correto
+      fetch(`${BASE_URL}/restaurants/${RESTAURANTE_ID}/products`)
+        .then(res => {
+          if (!res.ok) throw new Error('Erro ao conectar na API');
+          return res.json();
+        })
+        .then(data => {
+          // A API retorna um array, vamos achar o nosso produto
+          const produtoParaEditar = data.find((p: any) => p.id === idNumerico);
           
           if (produtoParaEditar) {
-            setNome(produtoParaEditar.nome);
-            setDescricao(produtoParaEditar.descricao);
-            setPreco(produtoParaEditar.preco.toString());
+            setNome(produtoParaEditar.name); // Python manda 'name'
+            setDescricao(produtoParaEditar.description); // Python manda 'description'
+            setPreco(produtoParaEditar.price.toString()); // Python manda 'price'
           } else {
-            showAppAlert('Erro', 'Produto não encontrado.');
+            showAppAlert('Erro', 'Produto não encontrado no servidor.');
             router.back();
           }
-        } catch (e) {
-          showAppAlert('Erro', 'Não foi possível carregar os dados do produto.');
-        } finally {
-          setIsFetchingData(false);
-        }
-      };
-      loadProduto();
+        })
+        .catch(e => {
+          console.error(e);
+          showAppAlert('Erro', 'Não foi possível carregar os dados. O backend está rodando?');
+        })
+        .finally(() => setIsFetchingData(false));
     } else {
       setIsFetchingData(false);
     }
-  }, [idNumerico, isEditMode, router]); // O 'idNumerico' agora é seguro
+  }, [idNumerico, isEditMode]);
 
 
-  // --- FUNÇÃO DE SALVAR (Create ou Update) ---
+  // --- 2. SALVAR NO SERVIDOR (POST ou PUT) ---
   const handleSalvar = async () => {
     // Validação
     if (!nome || !preco) {
@@ -103,52 +94,57 @@ export default function ModalProduto() {
     setIsLoading(true);
 
     try {
-      const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
-      const produtosAtuais: Produto[] = jsonValue != null ? JSON.parse(jsonValue) : [];
+      // Define URL e Método
+      let url, method;
       
       if (isEditMode) {
-        // --- LÓGICA DE UPDATE ---
-        const novosProdutos = produtosAtuais.map(p => 
-          p.id === idNumerico 
-          ? { ...p, nome, descricao, preco: precoNumerico }
-          : p
-        );
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(novosProdutos));
-        
+        // ATUALIZAR: PUT /products/<id>
+        url = `${BASE_URL}/products/${idNumerico}`;
+        method = 'PUT';
       } else {
-        // --- LÓGICA DE CREATE ---
-        const novoProduto: Produto = {
-          id: new Date().getTime(),
-          nome: nome,
-          descricao: descricao,
-          preco: precoNumerico,
-        };
-        const novosProdutos = [...produtosAtuais, novoProduto];
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(novosProdutos));
+        // CRIAR: POST /restaurants/<id>/products
+        url = `${BASE_URL}/restaurants/${RESTAURANTE_ID}/products`;
+        method = 'POST';
       }
-      
-      if (router.canGoBack()) {
-        router.back();
+
+      // Monta o JSON para o Python (names em inglês)
+      const body = JSON.stringify({
+        name: nome,
+        description: descricao,
+        price: precoNumerico,
+        image_url: "" // Enviamos vazio por enquanto
+      });
+
+      const response = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body
+      });
+
+      if (response.ok) {
+        if (router.canGoBack()) {
+          router.back(); // Volta para a lista
+        }
+      } else {
+        throw new Error('Erro na resposta da API');
       }
 
     } catch (e) {
       console.error(e);
-      showAppAlert('Erro', 'Não foi possível salvar o produto.');
+      showAppAlert('Erro', 'Não foi possível salvar. Verifique a conexão com o PC.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Se estiver buscando dados (modo edição), mostra um loading
   if (isFetchingData) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={COR_PRINCIPAL} />
       </View>
     );
   }
 
-  // --- TELA DO FORMULÁRIO ---
   return (
     <View style={styles.container}>
       <Stack.Screen 
@@ -159,7 +155,7 @@ export default function ModalProduto() {
       <TextInput
         style={styles.input}
         placeholder="Ex: Pizza Calabresa"
-        placeholderTextColor="#999999" // Cor do placeholder
+        placeholderTextColor="#999999"
         value={nome}
         onChangeText={setNome}
       />
@@ -187,13 +183,12 @@ export default function ModalProduto() {
         title={isLoading ? "Salvando..." : (isEditMode ? "Atualizar Produto" : "Salvar Produto")} 
         onPress={handleSalvar}
         disabled={isLoading}
-        color={COR_PRINCIPAL} // Cor vermelha
+        color={COR_PRINCIPAL}
       />
     </View>
   );
 }
 
-// --- ESTILOS (Com as correções de placeholder) ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
