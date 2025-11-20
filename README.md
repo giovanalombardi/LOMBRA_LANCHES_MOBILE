@@ -1,83 +1,90 @@
-# ☕ LOMBRA LANCHES (Admin CRUD)
+# 🍔 LOMBRA LANCHES MOBILE (Fullstack)
 
-Este é um aplicativo de gerenciamento de cardápio (CRUD - Create, Read, Update, Delete) para o "Lombra Lanches". Ele simula a interface de administrador de um app tipo iFood, permitindo a gestão completa dos produtos.
+Este projeto é o aplicativo de gestão de cardápio (Admin) do ecossistema "Lombra Lanches". Ele consiste em um **App Mobile** (React Native) conectado a uma **API Backend** (Python Flask).
 
-Este é um projeto **standalone** (100% frontend). Ele não precisa de um backend separado. Todos os dados são salvos localmente no dispositivo usando **`AsyncStorage`** (no celular) e **`LocalStorage`** (no navegador), o que garante que os dados persistem mesmo após fechar o app.
-
----
-
-## 🛠️ Tecnologias Utilizadas
-
-* **React Native** (com **Expo**)
-* **Expo Router** (para navegação entre a lista e o modal)
-* **TypeScript**
-* **AsyncStorage** (para persistência de dados local)
-* **Expo Web** (para rodar o app no navegador)
+O sistema permite o gerenciamento completo dos produtos (CRUD: Criar, Ler, Atualizar, Deletar) em tempo real.
 
 ---
 
-## 📋 Pré-requisitos
+## 🌐 Acesso Web (Vercel)
 
-Para rodar este projeto, você precisará **apenas** de:
-
-* **Node.js** (v18 ou superior)
-* **NPM** (geralmente instalado com o Node.js)
-* **(Para teste mobile)** O app **"Expo Go"** instalado no seu celular (iOS ou Android).
+🔗 **Link do App:** **https://lombra-lanches-mobile.vercel.app/**
 
 ---
 
-## 🚀 Como Executar (Modo Web)
+## 🛠️ Arquitetura do Projeto
 
-Este é o método mais simples. O app rodará 100% no navegador, sem precisar de celular.
+O projeto utiliza uma arquitetura híbrida para permitir desenvolvimento ágil e acesso remoto:
 
-1.  Abra um terminal e navegue até a pasta do projeto:
+1.  **Frontend:** React Native com Expo (Expo Router).
+2.  **Backend:** API Python Flask (Portátil, rodando na porta 5001).
+3.  **Conexão:** Túnel **Ngrok** (Expondo a API local para a internet segura via HTTPS).
+4.  **Banco de Dados:** Em memória (Runtime) para facilitar a portabilidade e testes.
+
+**Estrutura de Pastas:**
+* `/app-gerenciador`: Código fonte do Mobile.
+* `/app-gerenciador/backend`: Código fonte da API Python (`server.py`).
+
+---
+
+## 🚀 Como Rodar o Projeto Localmente
+
+Se desejar executar o projeto em sua máquina, siga os passos abaixo. É necessário rodar o Backend e o Frontend simultaneamente.
+
+### Pré-requisitos
+* Node.js e NPM
+* Python 3.x
+* App Expo Go (no celular)
+
+### PASSO 1: Iniciar o Backend (API)
+
+1.  Abra o terminal na pasta do backend:
     ```bash
-    cd /caminho/para/LOMBRA_LANCHES_MOBILE/app-gerenciador
+    cd app-gerenciador/backend
     ```
+2.  Instale as dependências (se necessário):
+    ```bash
+    pip install flask flask-cors
+    ```
+3.  Inicie o servidor:
+    ```bash
+    python server.py
+    ```
+    ✅ *O servidor iniciará na porta **5001**.*
 
-2.  Instale todas as dependências do projeto (só precisa fazer isso uma vez):
+### PASSO 2: Configurar a Conexão (Túnel)
+
+Para que o celular (ou a Vercel) acesse o Python local, recomendamos usar o Ngrok.
+
+1.  Em um novo terminal, inicie o túnel na porta da API:
+    ```bash
+    ngrok http 5001
+    ```
+2.  Copie o link gerado (ex: `https://xxxx.ngrok-free.app`).
+3.  Vá nos arquivos `app/index.tsx` e `app/modal-produto.tsx` e atualize a constante `BASE_URL` com este link.
+
+### PASSO 3: Iniciar o Mobile (Frontend)
+
+1.  Abra um novo terminal na pasta do app:
+    ```bash
+    cd app-gerenciador
+    ```
+2.  Instale as dependências:
     ```bash
     npm install
     ```
-
-3.  Inicie o servidor da aplicação no modo Web:
+3.  Inicie o projeto Expo:
     ```bash
-    npm run web
+    npx expo start
     ```
-    *(Este comando é um atalho para `npx expo start --web`)*
-
-✅ **Pronto!** O terminal irá compilar o projeto e abrir automaticamente uma aba no seu navegador padrão (geralmente `http://localhost:8081`).
-
-O app estará 100% funcional no navegador, salvando os dados no `LocalStorage`.
+4.  Escaneie o QR Code com seu celular (Android/iOS).
 
 ---
 
-## 📱 Como Executar (Modo Mobile - Para Teste no Celular)
+## 📱 Funcionalidades Implementadas
 
-Este método permite que você rode o app nativamente no seu próprio celular usando o aplicativo **Expo Go**.
-
-1.  Certifique-se de que seu **computador** e seu **celular** estejam conectados na **mesma rede Wi-Fi**.
-
-2.  Abra um terminal e navegue até a pasta do projeto:
-    ```bash
-    cd /caminho/para/LOMBRA_LANCHES_MOBILE/app-gerenciador
-    ```
-
-3.  Instale as dependências (se ainda não o fez):
-    ```bash
-    npm install
-    ```
-
-4.  Inicie o servidor de desenvolvimento do Expo (este comando **mostrará um QR Code**):
-    ```bash
-    npm start
-    ```
-    *(Este comando é um atalho para `npx expo start`)*
-
-5.  Abra o aplicativo **Câmera** padrão do seu celular (iOS ou Android).
-
-6.  **Aponte a câmera para o QR Code** que apareceu no seu terminal.
-
-7. O seu celular mostrará uma notificação ou um pop-up perguntando se você quer "Abrir com o Expo Go". **Toque nessa notificação.**
-
-✅ **Pronto!** O Expo Go irá carregar o aplicativo, e ele rodará diretamente no seu celular, salvando os dados no `AsyncStorage` do dispositivo.
+* **Listagem:** Consumo de API REST para listar produtos.
+* **Cadastro:** Envio de formulário via POST.
+* **Edição:** Carregamento de dados prévios e atualização via PUT.
+* **Exclusão:** Remoção de itens via DELETE com confirmação nativa.
+* **UX:** Feedback visual de carregamento (Loaders), "Pull to Refresh" e validação de campos.
